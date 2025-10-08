@@ -1,10 +1,12 @@
 const express = require('express');
+const dotenv = require('dotenv')
 const cors = require('cors');
 const nodemailer = require('nodemailer');
 const app = express();
 const port = process.env.PORT || 3000; // Render assigns PORT
 
 // Middleware
+dotenv.config();
 app.use(express.json());
 app.use(cors({
     origin: '*', // Restrict to your front-end domain in production
@@ -23,7 +25,7 @@ const sendGridTransporter = nodemailer.createTransport({
     port: 587,
     auth: {
         user: 'apikey',
-        pass: process.env.SENDGRID_API_KEY // Load from env
+        pass: process.env.SENDGRID_API_KEY
     }
 });
 
@@ -31,8 +33,8 @@ const sendGridTransporter = nodemailer.createTransport({
 const gmailTransporter = nodemailer.createTransport({
     service: 'gmail',
     auth: {
-        user: process.env.GMAIL_USER, // Load from env
-        pass: process.env.GMAIL_PASS // Load from env
+        user: 'doyinbayo19@gmail.com',
+        pass: 'zdsx fwjv aalm ixaq'
     }
 });
 
